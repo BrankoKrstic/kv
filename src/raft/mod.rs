@@ -11,8 +11,8 @@ pub mod persist;
 pub mod transport;
 
 pub struct Topology {
-    node_id: PeerId,
-    peers: Vec<Peer>,
+    pub(crate) node_id: PeerId,
+    pub(crate) peers: Vec<Peer>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Copy, Serialize, Deserialize)]
