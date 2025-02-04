@@ -1,7 +1,15 @@
 use crate::{
     kv::KVCommand,
-    proto::{log_item::KvItem, AppendEntriesGrpcRequest, GetItem, LogItem, PutItem},
-    raft::{transport::AppendEntriesRequest, LogEntry, PeerId, Term},
+    proto::{
+        log_item::KvItem, AppendEntriesGrpcRequest, AppendEntriesGrpcResponse, GetItem, LogItem,
+        PutItem, RequestVoteGrpcRequest, RequestVoteGrpcResponse,
+    },
+    raft::{
+        transport::{
+            AppendEntriesRequest, AppendEntriesResponse, RequestVoteRequest, RequestVoteResponse,
+        },
+        LogEntry, PeerId, Term,
+    },
 };
 
 pub enum LogItemError {
@@ -68,6 +76,62 @@ impl From<AppendEntriesRequest<KVCommand>> for AppendEntriesGrpcRequest {
             prev_log_term: value.prev_log_term.map(|x| x.0),
             entries: value.entries.into_iter().map(|x| x.into()).collect(),
             leader_commit: value.leader_commit.map(|x| x as u64),
+        }
+    }
+}
+
+impl From<AppendEntriesGrpcResponse> for AppendEntriesResponse {
+    fn from(value: AppendEntriesGrpcResponse) -> Self {
+        Self {
+            term: Term(value.term),
+            success: value.success,
+        }
+    }
+}
+
+impl From<AppendEntriesResponse> for AppendEntriesGrpcResponse {
+    fn from(value: AppendEntriesResponse) -> Self {
+        Self {
+            term: value.term.0,
+            success: value.success,
+        }
+    }
+}
+
+impl From<RequestVoteGrpcRequest> for RequestVoteRequest {
+    fn from(value: RequestVoteGrpcRequest) -> Self {
+        Self {
+            candidate_id: PeerId(value.candidate_id),
+            term: Term(value.term),
+            last_log_index: value.last_log_index.map(|x| x as usize),
+            last_log_term: value.last_log_term.map(Term),
+        }
+    }
+}
+impl From<RequestVoteRequest> for RequestVoteGrpcRequest {
+    fn from(value: RequestVoteRequest) -> Self {
+        Self {
+            candidate_id: value.candidate_id.0,
+            term: value.term.0,
+            last_log_index: value.last_log_index.map(|x| x as u64),
+            last_log_term: value.last_log_term.map(|x| x.0),
+        }
+    }
+}
+
+impl From<RequestVoteGrpcResponse> for RequestVoteResponse {
+    fn from(value: RequestVoteGrpcResponse) -> Self {
+        Self {
+            term: Term(value.term),
+            vote_granted: value.vote_granted,
+        }
+    }
+}
+impl From<RequestVoteResponse> for RequestVoteGrpcResponse {
+    fn from(value: RequestVoteResponse) -> Self {
+        Self {
+            term: value.term.0,
+            vote_granted: value.vote_granted,
         }
     }
 }
