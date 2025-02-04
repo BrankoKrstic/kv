@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     kv::KVCommand,
-    proto::{kv_client::KvClient, AppendEntriesReq},
+    proto::{kv_client::KvClient, AppendEntriesGrpcRequest, AppendEntriesGrpcResponse},
     raft::{transport::Transport, PeerId},
 };
 
@@ -25,7 +25,7 @@ impl Transport<KVCommand> for GrpcTransport {
         msg: crate::raft::transport::AppendEntriesRequest<KVCommand>,
     ) -> Result<crate::raft::transport::AppendEntriesResponse, Self::Error> {
         let addr = self.addr_map.get(&peer_id).unwrap();
-        let request = tonic::Request::new(AppendEntriesReq {
+        let request = tonic::Request::new(AppendEntriesGrpcRequest {
             term: todo!(),
             leader_id: todo!(),
             prev_log_index: todo!(),

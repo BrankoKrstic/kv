@@ -3,7 +3,7 @@ syntax = "proto3";
 package kv;
 
 service KV {
-  rpc AppendEntries(AppendEntriesReq) returns (AppendEntriesRes);
+  rpc AppendEntries(AppendEntriesGrpcRequest) returns (AppendEntriesGrpcResponse);
 }
 
 message GetItem {
@@ -24,7 +24,7 @@ message LogItem {
   };
 }
 
-message AppendEntriesReq {
+message AppendEntriesGrpcRequest {
   uint64 term = 1;
   uint64 leader_id = 2;
   optional uint64 prev_log_index = 3;
@@ -33,7 +33,7 @@ message AppendEntriesReq {
   optional uint64 leader_commit = 6;
 }
 
-message AppendEntriesRes {
+message AppendEntriesGrpcResponse {
   uint64 term = 1;
   bool success = 2;
 }

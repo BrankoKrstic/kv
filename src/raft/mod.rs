@@ -16,9 +16,9 @@ pub struct Topology {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Copy, Serialize, Deserialize)]
-pub struct Term(u64);
+pub struct Term(pub u64);
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PeerId(u64);
+pub struct PeerId(pub u64);
 
 #[derive(Debug, Clone)]
 pub struct Peer {
@@ -37,7 +37,7 @@ impl Peer {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry<LogCommand> {
-    term: Term,
+    pub term: Term,
     pub command: LogCommand,
 }
 
