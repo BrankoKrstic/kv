@@ -17,7 +17,7 @@ pub struct Topology {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub struct Term(u64);
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PeerId(u64);
 
 #[derive(Debug, Clone)]

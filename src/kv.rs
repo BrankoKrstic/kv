@@ -1,41 +1,19 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use crate::raft::{core::Raft, persist::DiskPersist, transport::Transport, RaftCommand, Topology};
+use crate::{
+    raft::{core::Raft, persist::DiskPersist, transport::Transport, RaftCommand, Topology},
+    transport::GrpcTransport,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum KVCommand {
+pub enum KVCommand {
     Get { key: String },
     Put { key: String, value: String },
 }
 
-struct GrpcTransport {}
-
-impl GrpcTransport {
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Transport<KVCommand> for GrpcTransport {
-    type Error = std::io::Error;
-
-    async fn append_entries(
-        &self,
-        peer_id: crate::raft::PeerId,
-        msg: crate::raft::transport::AppendEntriesRequest<KVCommand>,
-    ) -> Result<crate::raft::transport::AppendEntriesResponse, Self::Error> {
-        todo!()
-    }
-
-    async fn request_votes(
-        &self,
-        peer_id: crate::raft::PeerId,
-        msg: crate::raft::transport::RequestVoteRequest,
-    ) -> Result<crate::raft::transport::RequestVoteResponse, Self::Error> {
-        todo!()
-    }
-}
 struct KV {
     commit_rx: mpsc::Receiver<KVCommand>,
     grpc_tx: mpsc::Sender<RaftCommand<KVCommand>>,
@@ -43,7 +21,7 @@ struct KV {
 
 impl KV {
     async fn new() -> Self {
-        let transport = GrpcTransport::new();
+        let transport = GrpcTransport::new(HashMap::new());
         let persist = DiskPersist::new("storage");
         let topology = Topology {
             node_id: todo!(),

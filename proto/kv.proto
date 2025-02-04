@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package kv;
+
+service KV {
+  rpc AppendEntries(AppendEntriesReq) returns (AppendEntriesRes);
+}
+
+message GetItem {
+  string key = 1;
+}
+
+
+message PutItem {
+  string key = 1;
+  string value = 2;
+}
+
+message LogItem {
+  uint64 term = 1;
+  oneof kv_item {
+    GetItem get_item = 2;
+    PutItem put_item = 3;
+  };
+}
+
+message AppendEntriesReq {
+  uint64 term = 1;
+  uint64 leader_id = 2;
+  optional uint64 prev_log_index = 3;
+  optional uint64 prev_log_term = 4;
+  repeated LogItem entries = 5;
+  optional uint64 leader_commit = 6;
+}
+
+message AppendEntriesRes {
+  uint64 term = 1;
+  bool success = 2;
+}
