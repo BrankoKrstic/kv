@@ -10,6 +10,7 @@ pub mod core;
 pub mod persist;
 pub mod transport;
 
+#[derive(Debug, Deserialize)]
 pub struct Topology {
     pub node_id: PeerId,
     pub peers: Vec<Peer>,
@@ -20,10 +21,10 @@ pub struct Term(pub u64);
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PeerId(pub u64);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Peer {
-    id: PeerId,
-    log_index: Option<usize>,
+    pub id: PeerId,
+    pub log_index: Option<usize>,
 }
 
 impl Peer {

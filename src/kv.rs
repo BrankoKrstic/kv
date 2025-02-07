@@ -10,7 +10,7 @@ use ulid::Ulid;
 
 use crate::{
     proto::kv_server::KvServer,
-    raft::{core::Raft, persist::DiskPersist, RaftCommand, Topology},
+    raft::{core::Raft, persist::DiskPersist, PeerId, RaftCommand, Topology},
     service::KvService,
     transform::{SubmitEntryErr, SubmitEntryResponse},
     transport::GrpcTransport,
@@ -53,15 +53,19 @@ pub struct KV {
 }
 
 impl KV {
-    pub async fn new(topology: Topology) -> Self {
-        let transport = GrpcTransport::new(HashMap::new());
+    pub async fn new(
+        addr: SocketAddr,
+        topology: Topology,
+        transport_topology: HashMap<PeerId, String>,
+    ) -> Self {
+        let transport = GrpcTransport::new(transport_topology);
         let persist = DiskPersist::new("storage");
 
         let (grpc_tx, grpc_rx) = mpsc::channel(100);
         let (submit_tx, submit_rx) = mpsc::channel(100);
         let service = KvService::new(grpc_tx.clone(), submit_tx);
         let server = Server::builder().add_service(KvServer::new(service));
-        tokio::spawn(server.serve("127.0.0.1:8080".parse().unwrap()));
+        tokio::spawn(server.serve(addr));
         let (commit_tx, commit_rx) = mpsc::channel(100);
         let raft = Raft::new(transport, persist, topology, grpc_rx, commit_tx).await;
         tokio::spawn(raft.run());
