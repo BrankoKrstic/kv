@@ -5,17 +5,19 @@ package kv;
 service KV {
   rpc AppendEntries(AppendEntriesGrpcRequest) returns (AppendEntriesGrpcResponse);
   rpc RequestVote(RequestVoteGrpcRequest) returns (RequestVoteGrpcResponse);
-
+  rpc SubmitEntry(SubmitEntryGrpcRequest) returns (SubmitEntryGrpcResponse);
 }
 
 message GetItem {
   string key = 1;
+  string id = 2;
 }
 
 
 message PutItem {
   string key = 1;
   string value = 2;
+  string id = 3;
 }
 
 message LogItem {
@@ -50,4 +52,18 @@ message RequestVoteGrpcRequest {
 message RequestVoteGrpcResponse {
   uint64 term = 1;
   bool vote_granted = 2;
+}
+
+message SubmitEntryGrpcRequest {
+  oneof entry_item {
+    GetItem get_item = 1;
+    PutItem put_item = 2;
+  };
+}
+
+message SubmitEntryGrpcResponse {
+  optional string value = 1;
+  bool duplicate = 2;
+  bool not_leader = 3;
+  bool invalid_command = 4;
 }

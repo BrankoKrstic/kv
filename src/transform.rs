@@ -1,8 +1,11 @@
+use ulid::Ulid;
+
 use crate::{
     kv::KVCommand,
     proto::{
-        log_item::KvItem, AppendEntriesGrpcRequest, AppendEntriesGrpcResponse, GetItem, LogItem,
-        PutItem, RequestVoteGrpcRequest, RequestVoteGrpcResponse,
+        log_item::KvItem, submit_entry_grpc_request::EntryItem, AppendEntriesGrpcRequest,
+        AppendEntriesGrpcResponse, GetItem, LogItem, PutItem, RequestVoteGrpcRequest,
+        RequestVoteGrpcResponse, SubmitEntryGrpcRequest, SubmitEntryGrpcResponse,
     },
     raft::{
         transport::{
@@ -14,6 +17,7 @@ use crate::{
 
 pub enum LogItemError {
     NoItem,
+    InvalidUlid,
 }
 
 impl TryFrom<LogItem> for LogEntry<KVCommand> {
@@ -21,8 +25,14 @@ impl TryFrom<LogItem> for LogEntry<KVCommand> {
     fn try_from(value: LogItem) -> Result<Self, Self::Error> {
         let command = match value.kv_item {
             Some(kv_item) => match kv_item {
-                KvItem::GetItem(get_item) => KVCommand::Get { key: get_item.key },
+                KvItem::GetItem(get_item) => KVCommand::Get {
+                    id: Ulid::from_string(&get_item.id[..])
+                        .map_err(|_| LogItemError::InvalidUlid)?,
+                    key: get_item.key,
+                },
                 KvItem::PutItem(put_item) => KVCommand::Put {
+                    id: Ulid::from_string(&put_item.id[..])
+                        .map_err(|_| LogItemError::InvalidUlid)?,
                     key: put_item.key,
                     value: put_item.value,
                 },
@@ -41,8 +51,15 @@ impl From<LogEntry<KVCommand>> for LogItem {
         LogItem {
             term: value.term.0,
             kv_item: Some(match value.command {
-                KVCommand::Get { key } => KvItem::GetItem(GetItem { key }),
-                KVCommand::Put { key, value } => KvItem::PutItem(PutItem { key, value }),
+                KVCommand::Get { id, key } => KvItem::GetItem(GetItem {
+                    id: id.to_string(),
+                    key,
+                }),
+                KVCommand::Put { id, key, value } => KvItem::PutItem(PutItem {
+                    id: id.to_string(),
+                    key,
+                    value,
+                }),
             }),
         }
     }
@@ -132,6 +149,110 @@ impl From<RequestVoteResponse> for RequestVoteGrpcResponse {
         Self {
             term: value.term.0,
             vote_granted: value.vote_granted,
+        }
+    }
+}
+
+pub struct SubmitEntryRequest {
+    pub command: KVCommand,
+}
+
+pub struct SubmitEntryResponse {
+    pub value: Option<String>,
+}
+
+pub enum SubmitEntryErr {
+    DuplicateRequest,
+    NotLeader,
+    InvalidCommand,
+}
+
+impl TryFrom<SubmitEntryGrpcRequest> for SubmitEntryRequest {
+    type Error = LogItemError;
+    fn try_from(value: SubmitEntryGrpcRequest) -> Result<Self, Self::Error> {
+        let item = match value.entry_item {
+            Some(entry_item) => match entry_item {
+                EntryItem::GetItem(get_item) => KVCommand::Get {
+                    id: Ulid::from_string(&get_item.id[..])
+                        .map_err(|_| LogItemError::InvalidUlid)?,
+                    key: get_item.key,
+                },
+                EntryItem::PutItem(put_item) => KVCommand::Put {
+                    id: Ulid::from_string(&put_item.id[..])
+                        .map_err(|_| LogItemError::InvalidUlid)?,
+                    key: put_item.key,
+                    value: put_item.value,
+                },
+            },
+            None => return Err(LogItemError::NoItem),
+        };
+        Ok(SubmitEntryRequest { command: item })
+    }
+}
+
+impl From<SubmitEntryRequest> for SubmitEntryGrpcRequest {
+    fn from(value: SubmitEntryRequest) -> Self {
+        SubmitEntryGrpcRequest {
+            entry_item: Some(match value.command {
+                KVCommand::Get { id, key } => EntryItem::GetItem(GetItem {
+                    key,
+                    id: id.to_string(),
+                }),
+                KVCommand::Put { id, key, value } => EntryItem::PutItem(PutItem {
+                    key,
+                    value,
+                    id: id.to_string(),
+                }),
+            }),
+        }
+    }
+}
+
+impl From<Result<SubmitEntryResponse, SubmitEntryErr>> for SubmitEntryGrpcResponse {
+    fn from(value: Result<SubmitEntryResponse, SubmitEntryErr>) -> Self {
+        match value {
+            Ok(res) => SubmitEntryGrpcResponse {
+                value: res.value,
+                duplicate: false,
+                not_leader: false,
+                invalid_command: false,
+            },
+            Err(e) => match e {
+                SubmitEntryErr::DuplicateRequest => SubmitEntryGrpcResponse {
+                    value: None,
+                    duplicate: true,
+                    not_leader: false,
+                    invalid_command: false,
+                },
+                SubmitEntryErr::NotLeader => SubmitEntryGrpcResponse {
+                    value: None,
+                    duplicate: false,
+                    not_leader: true,
+                    invalid_command: false,
+                },
+                SubmitEntryErr::InvalidCommand => SubmitEntryGrpcResponse {
+                    value: None,
+                    duplicate: false,
+                    not_leader: false,
+                    invalid_command: true,
+                },
+            },
+        }
+    }
+}
+
+impl TryFrom<SubmitEntryGrpcResponse> for SubmitEntryResponse {
+    type Error = SubmitEntryErr;
+
+    fn try_from(value: SubmitEntryGrpcResponse) -> Result<Self, Self::Error> {
+        if value.duplicate {
+            Err(SubmitEntryErr::DuplicateRequest)
+        } else if value.invalid_command {
+            Err(SubmitEntryErr::InvalidCommand)
+        } else if value.not_leader {
+            Err(SubmitEntryErr::NotLeader)
+        } else {
+            Ok(SubmitEntryResponse { value: value.value })
         }
     }
 }

@@ -4,7 +4,7 @@ use tonic::codec::CompressionEncoding;
 
 use crate::{
     kv::KVCommand,
-    proto::{kv_client::KvClient, AppendEntriesGrpcRequest, AppendEntriesGrpcResponse},
+    proto::kv_client::KvClient,
     raft::{transport::Transport, PeerId},
 };
 
