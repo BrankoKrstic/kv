@@ -142,7 +142,9 @@ where
             }
             RaftCommand::SubmitEntry { request, tx } => {
                 let result = self.submit_entry(request);
-                self.persist_state().await;
+                if self.is_leader() {
+                    self.persist_state().await;
+                }
                 let _ = tx.send(result);
             }
         }
