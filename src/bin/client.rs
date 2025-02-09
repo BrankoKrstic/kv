@@ -20,7 +20,7 @@ async fn main() {
         match buf.split_once(' ') {
             Some(("GET", key)) => {
                 let id = Ulid::new();
-                let _ = client.get(id, key).await;
+                let _ = client.get(id, key.trim()).await;
             }
             Some(("PUT", rest)) => 'ma: {
                 let (key, val) = if rest.starts_with('"') {
@@ -38,7 +38,7 @@ async fn main() {
                     break 'ma;
                 };
                 let id = Ulid::new();
-                let _ = client.put(id, key, val).await;
+                let _ = client.put(id, key.trim(), val.trim()).await;
             }
             _ => eprintln!("Invalid command"),
         }
@@ -74,8 +74,8 @@ impl Client {
             let req = SubmitEntryRequest {
                 command: kv::kv::KVCommand::Put {
                     id,
-                    key: key.trim().to_string(),
-                    value: value.trim().to_string(),
+                    key: key.to_string(),
+                    value: value.to_string(),
                 },
             };
             let addr = self.servers.get(&self.cur_leader).unwrap();
@@ -125,7 +125,7 @@ impl Client {
             let req = SubmitEntryRequest {
                 command: kv::kv::KVCommand::Get {
                     id,
-                    key: key.trim().to_string(),
+                    key: key.to_string(),
                 },
             };
             let request = tonic::Request::new(req.into());
@@ -135,16 +135,15 @@ impl Client {
                         .accept_compressed(CompressionEncoding::Gzip)
                         .send_compressed(CompressionEncoding::Gzip);
                     let response = client.submit_entry(request).await;
-                    eprintln!("RESPONSE, {:?}", response);
                     let response = response?.into_inner();
                     match response.try_into() {
                         Ok(SubmitEntryResponse { value }) => {
                             match value {
                                 Some(val) => {
-                                    eprintln!("RESULT {}: {}", key, val);
+                                    eprintln!("{}: {}", key, val);
                                 }
                                 None => {
-                                    eprintln!("RESULT {}: empty", key);
+                                    eprintln!("{}: empty", key);
                                 }
                             }
                             break;
@@ -152,13 +151,12 @@ impl Client {
                         Err(e) => match e {
                             kv::transform::SubmitEntryErr::DuplicateRequest(val) => {
                                 match val {
-                                    Some(val) => println!("RESULT {}: {}", key, val),
-                                    None => todo!(),
+                                    Some(val) => println!("{}: {}", key, val),
+                                    None => println!("{}: empty", key),
                                 }
                                 break;
                             }
                             kv::transform::SubmitEntryErr::NotLeader => {
-                                eprintln!("NOT LEADER");
                                 let new_leader = self
                                     .servers
                                     .iter()
@@ -174,8 +172,7 @@ impl Client {
                         },
                     }
                 }
-                Err(e) => {
-                    eprintln!("Err {}", e);
+                Err(_) => {
                     let new_leader = self
                         .servers
                         .iter()
