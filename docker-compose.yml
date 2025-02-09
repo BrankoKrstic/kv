@@ -1,25 +1,41 @@
 services:
-  server1:
+  service1:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      CONFIG: '{"id":1,"nodes":[{"id":1,"addr":"0.0.0.0:8080"},{"id":2,"addr":"0.0.0.0:8081"},{"id":3,"addr":"0.0.0.0:8082"}]}'
+      CONFIG: '{"id":1,"nodes":[{"id":1,"addr":"service1"},{"id":2,"addr":"service2"},{"id":3,"addr":"service3"}]}'
     ports:
-      - "8080:8080"
-  server2:
+      - "8080:80"
+    networks:
+      - raft
+    expose:
+      - "80"
+  service2:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      CONFIG: '{"id":2,"nodes":[{"id":1,"addr":"0.0.0.0:8080"},{"id":2,"addr":"0.0.0.0:8081"},{"id":3,"addr":"0.0.0.0:8082"}]}'
+      CONFIG: '{"id":2,"nodes":[{"id":1,"addr":"service1"},{"id":2,"addr":"service2"},{"id":3,"addr":"service3"}]}'
     ports:
-      - "8081:8081"
-  server3:
+      - "8081:80"
+    networks:
+      - raft
+    expose:
+      - "80"
+  service3:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      CONFIG: '{"id":3,"nodes":[{"id":1,"addr":"0.0.0.0:8080"},{"id":2,"addr":"0.0.0.0:8081"},{"id":3,"addr":"0.0.0.0:8082"}]}'
+      CONFIG: '{"id":3,"nodes":[{"id":1,"addr":"service1"},{"id":2,"addr":"service2"},{"id":3,"addr":"service3"}]}'
     ports:
-      - "8082:8082"
+      - "8082:80"
+    networks:
+      - raft
+    expose:
+      - "80"
+networks:
+  raft:
+    # Specify driver options
+    driver: bridge

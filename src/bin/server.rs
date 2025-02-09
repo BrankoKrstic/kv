@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 
 use kv::{
     kv::KV,
@@ -15,7 +15,7 @@ struct Config {
 #[derive(Debug, Deserialize)]
 struct PeerInfo {
     id: PeerId,
-    addr: SocketAddr,
+    addr: String,
 }
 #[tokio::main]
 async fn main() {
@@ -25,7 +25,7 @@ async fn main() {
         .nodes
         .iter()
         .filter(|x| x.id != config.id)
-        .map(|x| (x.id, format!("http://{}", x.addr)))
+        .map(|x: &PeerInfo| (x.id, format!("http://{}", x.addr)))
         .collect();
 
     let topology = Topology {
@@ -40,12 +40,8 @@ async fn main() {
             })
             .collect(),
     };
-    let addr = config
-        .nodes
-        .iter()
-        .find(|n| n.id == config.id)
-        .unwrap()
-        .addr;
+
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 80);
     let kv = KV::new(addr, topology, transport_topology).await;
     kv.run().await;
 }

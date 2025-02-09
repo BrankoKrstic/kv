@@ -16,13 +16,4 @@ RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/ap
 # Build your application
 RUN cargo build --release
 
-# Start a new stage to create a smaller image without unnecessary build dependencies
-# FROM debian:buster-slim
-# Set the working directory
-# WORKDIR /usr/src/app
-
-# Copy the built binary from the previous stage
-COPY ./target/release/ ./
-# RUN apt-get update && apt-get upgrade -y libc6
-# Command to run the application
-CMD ["./server"]
+CMD ["./target/release/server"]

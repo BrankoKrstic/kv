@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, io, net::SocketAddr};
+use std::{collections::HashMap, error::Error, fs::File, io, net::SocketAddr};
 
 use kv::{
     proto::kv_client::KvClient,
@@ -12,7 +12,8 @@ use ulid::Ulid;
 
 #[tokio::main]
 async fn main() {
-    let config: Config = serde_json::from_str(&std::env::var("CONFIG").unwrap()).unwrap();
+    let file = File::open("client_config.json").unwrap();
+    let config: Config = serde_json::from_reader(file).unwrap();
     let mut client = Client::new(config);
     let mut buf = String::new();
     loop {
@@ -23,7 +24,7 @@ async fn main() {
                 let _ = client.get(id, key.trim()).await;
             }
             Some(("PUT", rest)) => 'ma: {
-                let (key, val) = if rest.starts_with('"') {
+                let (key, val) = if let Some(rest) = rest.strip_prefix('"') {
                     if let Some((key, val)) = rest.split_once('\"') {
                         let val = val.trim();
                         (key, val)
