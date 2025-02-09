@@ -63,6 +63,7 @@ pub enum RaftCommand<LogCommand> {
     },
 }
 
+#[derive(Debug)]
 pub enum AppendError {
     NotLeader(Option<PeerId>),
 }

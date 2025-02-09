@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Display};
+
 use ulid::Ulid;
 
 use crate::{
@@ -153,19 +155,30 @@ impl From<RequestVoteResponse> for RequestVoteGrpcResponse {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SubmitEntryRequest {
     pub command: KVCommand,
 }
 
+#[derive(Debug)]
 pub struct SubmitEntryResponse {
     pub value: Option<String>,
 }
 
+#[derive(Debug)]
 pub enum SubmitEntryErr {
-    DuplicateRequest,
+    DuplicateRequest(Option<String>),
     NotLeader,
     InvalidCommand,
 }
+
+impl Display for SubmitEntryErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for SubmitEntryErr {}
 
 impl TryFrom<SubmitEntryGrpcRequest> for SubmitEntryRequest {
     type Error = LogItemError;
@@ -218,8 +231,8 @@ impl From<Result<SubmitEntryResponse, SubmitEntryErr>> for SubmitEntryGrpcRespon
                 invalid_command: false,
             },
             Err(e) => match e {
-                SubmitEntryErr::DuplicateRequest => SubmitEntryGrpcResponse {
-                    value: None,
+                SubmitEntryErr::DuplicateRequest(value) => SubmitEntryGrpcResponse {
+                    value,
                     duplicate: true,
                     not_leader: false,
                     invalid_command: false,
@@ -246,7 +259,7 @@ impl TryFrom<SubmitEntryGrpcResponse> for SubmitEntryResponse {
 
     fn try_from(value: SubmitEntryGrpcResponse) -> Result<Self, Self::Error> {
         if value.duplicate {
-            Err(SubmitEntryErr::DuplicateRequest)
+            Err(SubmitEntryErr::DuplicateRequest(value.value))
         } else if value.invalid_command {
             Err(SubmitEntryErr::InvalidCommand)
         } else if value.not_leader {

@@ -60,7 +60,7 @@ pub struct Raft<T, LogCommand, P> {
 impl<T: Transport<LogCommand>, LogCommand: Clone + Send + Serialize, P: Persist<LogCommand>>
     Raft<T, LogCommand, P>
 where
-    LogCommand: for<'de> Deserialize<'de>,
+    LogCommand: for<'de> Deserialize<'de> + std::fmt::Debug,
 {
     pub async fn new(
         transport: T,
@@ -157,8 +157,12 @@ where
             );
             let old_commit_index = self.commit_index;
             self.commit_index = new_commit_index;
-            for item in &self.log
-                [old_commit_index.unwrap_or_default()..new_commit_index.unwrap_or_default()]
+            eprintln!(
+                "COMMIT CHANNEL {:?} {:?} {:?}",
+                &self.log, old_commit_index, new_commit_index
+            );
+            for item in &self.log[old_commit_index.map(|x| x + 1).unwrap_or_default()
+                ..new_commit_index.map(|x| x + 1).unwrap_or_default()]
             {
                 // TODO: possibly switch this to a blocking channel
                 let _ = self.commit_channel.try_send(item.command.clone());
@@ -320,6 +324,7 @@ where
         let peers = self.peers.clone();
         let mut jhs = peers
             .into_iter()
+            .filter(|p| p.id != self.id)
             .map(|peer| {
                 self.transport.request_votes(
                     peer.id,
@@ -350,7 +355,7 @@ where
                             Ok(res) => res,
                             Err(e) => {
                                 eprintln!(
-                                    "Raft Instance failed to respond to append entries {:?}",
+                                    "Raft Instance failed to respond to vote request {:?}",
                                     e
                                 );
                                 continue;

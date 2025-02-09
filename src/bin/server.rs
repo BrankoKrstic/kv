@@ -19,11 +19,13 @@ struct PeerInfo {
 }
 #[tokio::main]
 async fn main() {
+    eprintln!("{:?}", std::env::var("CONFIG"));
     let config: Config = serde_json::from_str(&std::env::var("CONFIG").unwrap()).unwrap();
     let transport_topology = config
         .nodes
         .iter()
-        .map(|x| (x.id, x.addr.to_string()))
+        .filter(|x| x.id != config.id)
+        .map(|x| (x.id, format!("http://{}", x.addr)))
         .collect();
 
     let topology = Topology {
@@ -31,6 +33,7 @@ async fn main() {
         peers: config
             .nodes
             .iter()
+            .filter(|x| x.id != config.id)
             .map(|x| Peer {
                 id: x.id,
                 log_index: None,

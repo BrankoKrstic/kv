@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
-use tonic::transport::Server;
+use tonic::{codec::CompressionEncoding, transport::Server};
 use ulid::Ulid;
 
 use crate::{
@@ -64,8 +64,13 @@ impl KV {
         let (grpc_tx, grpc_rx) = mpsc::channel(100);
         let (submit_tx, submit_rx) = mpsc::channel(100);
         let service = KvService::new(grpc_tx.clone(), submit_tx);
-        let server = Server::builder().add_service(KvServer::new(service));
-        tokio::spawn(server.serve(addr));
+        let server = KvServer::new(service)
+            .accept_compressed(CompressionEncoding::Gzip)
+            .send_compressed(CompressionEncoding::Gzip);
+        let router = Server::builder().add_service(server);
+        tokio::spawn(async move {
+            router.serve(addr).await.unwrap();
+        });
         let (commit_tx, commit_rx) = mpsc::channel(100);
         let raft = Raft::new(transport, persist, topology, grpc_rx, commit_tx).await;
         tokio::spawn(raft.run());
@@ -79,15 +84,19 @@ impl KV {
         }
     }
     async fn handle_commit(&mut self, commit: KVCommand) {
+        let id = *commit.get_id();
         let listener = self.commit_listeners.remove(commit.get_id());
         let result = match commit {
             KVCommand::Get { key, .. } => {
+                eprintln!("THIS BE THE KEY {}", key);
                 let result = self.state.get(&key).cloned();
                 Ok(SubmitEntryResponse { value: result })
             }
             KVCommand::Put { id, key, value } => {
                 if self.seen.contains(&id) {
-                    Err(SubmitEntryErr::DuplicateRequest)
+                    Err(SubmitEntryErr::DuplicateRequest(
+                        self.state.get(&key).cloned(),
+                    ))
                 } else {
                     self.seen.insert(id);
                     self.state.insert(key, value);
@@ -96,7 +105,13 @@ impl KV {
             }
         };
         if let Some(listener) = listener {
+            println!(
+                "WRITING BACK TO LISTENER COMMAND {} {:?} {:?}",
+                id, self.state, result
+            );
             let _ = listener.send(result);
+        } else {
+            println!("NO LISTENER {}", id);
         }
     }
     async fn handle_submit(&mut self, submit: EntryCommand) {
@@ -110,13 +125,15 @@ impl KV {
             })
             .await
             .unwrap();
+        self.commit_listeners.insert(id, submit.tx);
         let result = rx.await.unwrap();
-        match result {
-            Ok(_) => {
-                self.commit_listeners.insert(id, submit.tx);
-            }
-            Err(_) => {
-                let _ = submit.tx.send(Err(SubmitEntryErr::NotLeader));
+        println!("Adding listener {}", id);
+
+        if result.is_err() {
+            println!("Removing listner listener {:?}", result);
+
+            if let Some(submit_tx) = self.commit_listeners.remove(&id) {
+                let _ = submit_tx.send(Err(SubmitEntryErr::NotLeader));
             }
         }
     }

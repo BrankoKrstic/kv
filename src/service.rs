@@ -52,6 +52,8 @@ impl Kv for KvService {
         &self,
         request: tonic::Request<RequestVoteGrpcRequest>,
     ) -> Result<tonic::Response<RequestVoteGrpcResponse>, tonic::Status> {
+        println!("Got Request Vote Request");
+
         let req = request.into_inner().into();
         let (tx, rx) = oneshot::channel();
         self.raft_channel
