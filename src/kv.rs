@@ -84,11 +84,9 @@ impl KV {
         }
     }
     async fn handle_commit(&mut self, commit: KVCommand) {
-        let id = *commit.get_id();
         let listener = self.commit_listeners.remove(commit.get_id());
         let result = match commit {
             KVCommand::Get { key, .. } => {
-                eprintln!("THIS BE THE KEY {}", key);
                 let result = self.state.get(&key).cloned();
                 Ok(SubmitEntryResponse { value: result })
             }
@@ -105,13 +103,7 @@ impl KV {
             }
         };
         if let Some(listener) = listener {
-            println!(
-                "WRITING BACK TO LISTENER COMMAND {} {:?} {:?}",
-                id, self.state, result
-            );
             let _ = listener.send(result);
-        } else {
-            println!("NO LISTENER {}", id);
         }
     }
     async fn handle_submit(&mut self, submit: EntryCommand) {
@@ -127,11 +119,8 @@ impl KV {
             .unwrap();
         self.commit_listeners.insert(id, submit.tx);
         let result = rx.await.unwrap();
-        println!("Adding listener {}", id);
 
         if result.is_err() {
-            println!("Removing listner listener {:?}", result);
-
             if let Some(submit_tx) = self.commit_listeners.remove(&id) {
                 let _ = submit_tx.send(Err(SubmitEntryErr::NotLeader));
             }

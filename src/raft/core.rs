@@ -157,10 +157,6 @@ where
             );
             let old_commit_index = self.commit_index;
             self.commit_index = new_commit_index;
-            eprintln!(
-                "COMMIT CHANNEL {:?} {:?} {:?}",
-                &self.log, old_commit_index, new_commit_index
-            );
             for item in &self.log[old_commit_index.map(|x| x + 1).unwrap_or_default()
                 ..new_commit_index.map(|x| x + 1).unwrap_or_default()]
             {
